@@ -17,6 +17,12 @@ GOOGLE_STORAGE = 'gs'
 # URI scheme for accessing local files.
 LOCAL_FILE = 'file'
 
+def save_to(lst, fname):
+    with open(fname, 'wb') as f:
+        for l in lst:
+            f.write(l)
+            f.write('\n')
+
 class CopyMachine(object):
 
     def __init__(self, config, srcfiles, dstFolder, tmpFolder='/tmp/'):
@@ -98,7 +104,10 @@ class CopyMachine(object):
                 self.failed_list.append(url)
                 logging.warn('%s failed' % url)
 
+            self.save_list()
+
     def download(self, url_result):
+        self.logger.info('<<downloading %s' % url_result.path)
         bucket = self.get_bucket(
             url_result.scheme,
             url_result.netloc)
@@ -114,13 +123,26 @@ class CopyMachine(object):
 
         bucket = self.get_bucket(uparse_dstFolder.scheme, uparse_dstFolder.netloc)
         key = os.path.join(uparse_dstFolder.path, uri_name)
+        self.logger.info('>>uploading %s' % key)
         obj = bucket.new_key(key)
         obj.set_contents_from_filename(fpath)
 
+    def save_list(self):
+        if self.success_list:
+            save_to(self.success_list, 'success.txt')
+        if self.failed_list:
+            save_to(self.failed_list, 'failed.txt')
+
+
 parser = argparse.ArgumentParser(description='gs2s3. A Google storage to S3 Synchronization tool.')
 parser.add_argument('-s', '--src', type=str, nargs='+',
-    help='Src files',
+    help='src',
     default=[])
+
+parser.add_argument('-S', '--srcFile', type=str,
+    help='Src files',
+    default=None)
+
 
 parser.add_argument('-d', '--dstFolder', type=str, 
     help='Destination folder', default=None)
@@ -147,6 +169,11 @@ def main(args):
 
     with open(config_path, 'rb') as f:
         config =  yaml.load(f.read())
+    import ipdb; ipdb.set_trace()
+    if args.srcFile:
+        with open(args.srcFile, 'rb') as f:
+            args.src = [ l[:-1] for l in f.readlines()]
+
 
     if not args.src or not args.dstFolder:
         print "Please provide at least src and dst"
